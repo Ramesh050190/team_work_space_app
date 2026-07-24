@@ -237,5 +237,173 @@ void main() {
         isA<TaskFormSuccess>().having((s) => s.mode, 'mode', TaskFormMode.edit),
       ],
     );
+
+    blocTest<TaskFormBloc, TaskFormState>(
+      'PriorityChanged updates priority',
+      build: buildBloc,
+      seed: () => TaskFormEditing(
+        mode: TaskFormMode.create,
+        title: 'Valid title',
+        description: 'Valid description here',
+        priority: TaskPriority.medium,
+        status: TaskStatus.pending,
+        dueDate: futureDue,
+        priorityError: 'priority_required',
+      ),
+      act: (bloc) => bloc.add(const PriorityChanged(TaskPriority.high)),
+      expect: () => [
+        isA<TaskFormEditing>()
+            .having((s) => s.priority, 'priority', TaskPriority.high)
+            .having((s) => s.priorityError, 'priorityError', isNull),
+      ],
+    );
+
+    blocTest<TaskFormBloc, TaskFormState>(
+      'DueDateChanged updates dueDate',
+      build: buildBloc,
+      seed: () => TaskFormEditing(
+        mode: TaskFormMode.create,
+        title: 'Valid title',
+        description: 'Valid description here',
+        priority: TaskPriority.medium,
+        status: TaskStatus.pending,
+        dueDate: futureDue,
+      ),
+      act: (bloc) {
+        final nextDue = DateTime.now().add(const Duration(days: 7));
+        bloc.add(DueDateChanged(nextDue));
+      },
+      expect: () => [
+        isA<TaskFormEditing>().having(
+          (s) => s.dueDate,
+          'dueDate',
+          isA<DateTime>(),
+        ),
+      ],
+      verify: (bloc) {
+        final state = bloc.state as TaskFormEditing;
+        expect(state.dueDateError, isNull);
+        expect(
+          state.dueDate!.isAfter(DateTime.now().add(const Duration(days: 5))),
+          isTrue,
+        );
+      },
+    );
+
+    blocTest<TaskFormBloc, TaskFormState>(
+      'StatusChanged updates status',
+      build: buildBloc,
+      seed: () => TaskFormEditing(
+        mode: TaskFormMode.edit,
+        taskId: 1,
+        existingTask: existingTask,
+        title: 'Existing task',
+        description: 'Existing description long enough',
+        priority: TaskPriority.medium,
+        status: TaskStatus.pending,
+        dueDate: futureDue,
+      ),
+      act: (bloc) => bloc.add(const StatusChanged(TaskStatus.inProgress)),
+      expect: () => [
+        isA<TaskFormEditing>().having(
+          (s) => s.status,
+          'status',
+          TaskStatus.inProgress,
+        ),
+      ],
+    );
+
+    blocTest<TaskFormBloc, TaskFormState>(
+      'ResetForm returns to Initial',
+      build: buildBloc,
+      seed: () => TaskFormEditing(
+        mode: TaskFormMode.create,
+        title: 'Valid title',
+        description: 'Valid description here',
+        priority: TaskPriority.medium,
+        status: TaskStatus.pending,
+        dueDate: futureDue,
+      ),
+      act: (bloc) => bloc.add(const ResetForm()),
+      expect: () => [const TaskFormInitial()],
+    );
+
+    blocTest<TaskFormBloc, TaskFormState>(
+      'ClearFormMessage clears submitError',
+      build: buildBloc,
+      seed: () => TaskFormEditing(
+        mode: TaskFormMode.create,
+        title: 'Valid title',
+        description: 'Valid description here',
+        priority: TaskPriority.medium,
+        status: TaskStatus.pending,
+        dueDate: futureDue,
+        submitError: 'Create failed',
+      ),
+      act: (bloc) => bloc.add(const ClearFormMessage()),
+      expect: () => [
+        isA<TaskFormEditing>().having(
+          (s) => s.submitError,
+          'submitError',
+          isNull,
+        ),
+      ],
+    );
+
+    blocTest<TaskFormBloc, TaskFormState>(
+      'SubmitCreateTask emits Failure then Editing on API error',
+      build: buildBloc,
+      seed: () => TaskFormEditing(
+        mode: TaskFormMode.create,
+        title: 'New task title',
+        description: 'Valid description here',
+        priority: TaskPriority.high,
+        status: TaskStatus.pending,
+        dueDate: futureDue,
+      ),
+      setUp: () {
+        when(() => createTaskUseCase(any())).thenAnswer(
+          (_) async => const Left(ServerFailure(message: 'Create failed')),
+        );
+      },
+      act: (bloc) => bloc.add(const SubmitCreateTask()),
+      expect: () => [
+        isA<TaskFormSubmitting>(),
+        isA<TaskFormFailure>().having(
+          (s) => s.message,
+          'message',
+          'Create failed',
+        ),
+        isA<TaskFormEditing>().having(
+          (s) => s.submitError,
+          'submitError',
+          'Create failed',
+        ),
+      ],
+    );
+
+    blocTest<TaskFormBloc, TaskFormState>(
+      'SubmitUpdateTask emits ValidationError when title is invalid',
+      build: buildBloc,
+      seed: () => TaskFormEditing(
+        mode: TaskFormMode.edit,
+        taskId: 1,
+        existingTask: existingTask,
+        title: 'ab',
+        description: 'Valid description here',
+        priority: TaskPriority.low,
+        status: TaskStatus.pending,
+        dueDate: futureDue,
+      ),
+      act: (bloc) => bloc.add(const SubmitUpdateTask()),
+      expect: () => [
+        isA<TaskFormValidationError>(),
+        isA<TaskFormEditing>().having(
+          (s) => s.titleError,
+          'titleError',
+          isNotNull,
+        ),
+      ],
+    );
   });
 }

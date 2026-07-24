@@ -123,14 +123,43 @@ void main() {
       ),
     ).thenAnswer((_) async => Right(page));
 
-    final params = const GetTasksParams(page: 2, limit: 5, cacheOnly: true);
-    final same = const GetTasksParams(page: 2, limit: 5, cacheOnly: true);
-    final different = const GetTasksParams(page: 3, limit: 5, cacheOnly: true);
+    const params = GetTasksParams(page: 2, limit: 5, cacheOnly: true);
+    const same = GetTasksParams(page: 2, limit: 5, cacheOnly: true);
+    const different = GetTasksParams(page: 3, limit: 5, cacheOnly: true);
 
     expect(params, equals(same));
     expect(params, isNot(equals(different)));
 
     final result = await useCase(params);
     expect(result.isRight(), isTrue);
+  });
+
+  test('GetTasksParams props include search status and priority', () {
+    const a = GetTasksParams(
+      page: 2,
+      limit: 10,
+      cacheOnly: true,
+      searchQuery: 'flutter',
+      status: TaskStatus.pending,
+      priority: TaskPriority.high,
+    );
+    const b = GetTasksParams(
+      page: 2,
+      limit: 10,
+      cacheOnly: true,
+      searchQuery: 'flutter',
+      status: TaskStatus.pending,
+      priority: TaskPriority.high,
+    );
+
+    expect(a, equals(b));
+    expect(a.props, [
+      2,
+      10,
+      true,
+      'flutter',
+      TaskStatus.pending,
+      TaskPriority.high,
+    ]);
   });
 }

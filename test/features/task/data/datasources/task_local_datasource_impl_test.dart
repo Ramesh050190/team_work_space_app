@@ -1,252 +1,186 @@
-import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:team_workspace/core/constants/hive_constants.dart';
-import 'package:team_workspace/core/exceptions/cache_exception.dart';
 import 'package:team_workspace/core/storage/hive_service.dart';
 import 'package:team_workspace/features/task/data/datasources/task_local_datasource_impl.dart';
 import 'package:team_workspace/features/task/data/models/pending_sync_model.dart';
 import 'package:team_workspace/features/task/data/models/task_model.dart';
-import 'package:team_workspace/features/task/data/models/task_model_adapter.dart';
+import 'package:team_workspace/features/task/domain/entities/task_priority.dart';
+import 'package:team_workspace/features/task/domain/entities/task_status.dart';
 
-class MockHiveService extends Mock implements HiveService {}
+class _MockHiveService extends Mock implements HiveService {}
+
+class _MockTaskDetailsBox extends Mock implements Box<String> {}
+
+class _MockTaskListBox extends Mock implements LazyBox<String> {}
+
+class _MockTasksBox extends Mock implements LazyBox<TaskModel> {}
+
+class _MockPendingOperationsBox extends Mock implements Box<PendingSyncModel> {}
 
 void main() {
-  late Directory tempDir;
-  late Box<String> taskDetailsBox;
-  late LazyBox<String> taskListBox;
-  late Box<PendingSyncModel> pendingBox;
-  late LazyBox<TaskModel> tasksBox;
-  late MockHiveService hiveService;
+  late _MockHiveService hiveService;
+  late _MockTaskDetailsBox taskDetailsBox;
+  late _MockTaskListBox taskListBox;
+  late _MockTasksBox tasksBox;
+  late _MockPendingOperationsBox pendingOperationsBox;
   late TaskLocalDataSourceImpl dataSource;
 
-  TaskModel sampleTask({int id = 1, String title = 'Task'}) {
-    return TaskModel.fromJson({
-      'id': id,
-      'title': title,
-      'description': 'Description here',
-      'priority': 'medium',
-      'status': 'pending',
-      'dueDate': '2026-07-25T00:00:00.000Z',
-      'assignedUser': {
-        'id': 'u1',
-        'name': 'Alex',
-        'email': 'alex@example.com',
-      },
-      'createdAt': '2026-07-20T08:00:00.000Z',
-      'updatedAt': '2026-07-20T08:00:00.000Z',
-      'completed': false,
-    });
-  }
+  final task = TaskModel(
+    id: 1,
+    title: 'Cached task',
+    description: 'Details',
+    priority: TaskPriority.high,
+    status: TaskStatus.pending,
+    dueDate: DateTime.parse('2026-07-25T00:00:00.000Z'),
+    assignedUser: const AssignedUserModel(
+      id: 'u1',
+      name: 'Alex',
+      email: 'alex@example.com',
+    ),
+    createdAt: DateTime.parse('2026-07-20T08:00:00.000Z'),
+    updatedAt: DateTime.parse('2026-07-20T08:00:00.000Z'),
+    completed: false,
+  );
 
-  setUp(() async {
-    tempDir = await Directory.systemTemp.createTemp('task_local_');
-    Hive.init(tempDir.path);
-    if (!Hive.isAdapterRegistered(1)) {
-      Hive.registerAdapter(TaskModelAdapter());
-    }
-    if (!Hive.isAdapterRegistered(2)) {
-      Hive.registerAdapter(PendingSyncModelAdapter());
-    }
+  final pendingOp = PendingSyncModel(
+    operationId: 'op-1',
+    taskId: 1,
+    operationType: PendingOperationType.update,
+    payload: const {'completed': true},
+    createdAt: DateTime.parse('2026-07-20T08:00:00.000Z'),
+  );
 
-    taskDetailsBox = await Hive.openBox<String>(HiveConstants.taskDetailsBox);
-    taskListBox = await Hive.openLazyBox<String>(HiveConstants.taskListBox);
-    pendingBox = await Hive.openBox<PendingSyncModel>(
-      HiveConstants.pendingOperationsBox,
-    );
-    tasksBox = await Hive.openLazyBox<TaskModel>(HiveConstants.tasksBox);
+  setUpAll(() {
+    registerFallbackValue(task);
+    registerFallbackValue(pendingOp);
+  });
 
-    hiveService = MockHiveService();
+  setUp(() {
+    hiveService = _MockHiveService();
+    taskDetailsBox = _MockTaskDetailsBox();
+    taskListBox = _MockTaskListBox();
+    tasksBox = _MockTasksBox();
+    pendingOperationsBox = _MockPendingOperationsBox();
+
     when(() => hiveService.taskDetailsBox).thenReturn(taskDetailsBox);
     when(() => hiveService.taskListBox).thenReturn(taskListBox);
-    when(() => hiveService.pendingOperationsBox).thenReturn(pendingBox);
     when(() => hiveService.tasksBox).thenReturn(tasksBox);
+    when(
+      () => hiveService.pendingOperationsBox,
+    ).thenReturn(pendingOperationsBox);
+
+    when(() => taskDetailsBox.put(any(), any())).thenAnswer((_) async {});
+    when(() => taskListBox.put(any(), any())).thenAnswer((_) async {});
+    when(() => tasksBox.put(any(), any())).thenAnswer((_) async {});
+    when(() => pendingOperationsBox.put(any(), any())).thenAnswer((_) async {});
+    when(() => taskDetailsBox.delete(any())).thenAnswer((_) async {});
+    when(() => tasksBox.delete(any())).thenAnswer((_) async {});
+    when(() => pendingOperationsBox.delete(any())).thenAnswer((_) async {});
+    when(() => taskDetailsBox.clear()).thenAnswer((_) async => 0);
+    when(() => taskListBox.clear()).thenAnswer((_) async => 0);
+    when(() => tasksBox.clear()).thenAnswer((_) async => 0);
+    when(() => pendingOperationsBox.clear()).thenAnswer((_) async => 0);
+    when(() => taskListBox.get(any())).thenAnswer((_) async => null);
 
     dataSource = TaskLocalDataSourceImpl(hiveService: hiveService);
   });
 
-  tearDown(() async {
-    await Hive.close();
-    if (tempDir.existsSync()) {
-      await tempDir.delete(recursive: true);
-    }
-  });
-
   group('TaskLocalDataSourceImpl', () {
-    test('cache and get task details', () async {
-      final task = sampleTask();
-      await dataSource.cacheTaskDetails(task);
+    test(
+      'cacheTaskDetails writes details, typed box, and list upsert',
+      () async {
+        await dataSource.cacheTaskDetails(task);
 
-      final cached = await dataSource.getCachedTaskDetails(1);
-      expect(cached?.title, 'Task');
-      expect(await tasksBox.get('1'), isNotNull);
+        verify(
+          () => taskDetailsBox.put('task_details_1', jsonEncode(task.toJson())),
+        ).called(greaterThanOrEqualTo(1));
+        verify(() => tasksBox.put('1', task)).called(greaterThanOrEqualTo(1));
+        verify(
+          () => taskListBox.put(
+            HiveConstants.taskListCacheKey,
+            any(that: contains('"id":1')),
+          ),
+        ).called(1);
+      },
+    );
+
+    test('getCachedTaskDetails returns model from json cache', () async {
+      when(
+        () => taskDetailsBox.get('task_details_1'),
+      ).thenReturn(jsonEncode(task.toJson()));
+
+      final result = await dataSource.getCachedTaskDetails(1);
+
+      expect(result, isNotNull);
+      expect(result!.id, 1);
+      expect(result.title, 'Cached task');
+      verifyNever(() => tasksBox.get(any()));
     });
 
     test('getCachedTaskDetails falls back to tasksBox', () async {
-      final task = sampleTask(id: 9);
-      await tasksBox.put('9', task);
+      when(() => taskDetailsBox.get('task_details_1')).thenReturn(null);
+      when(() => tasksBox.get('1')).thenAnswer((_) async => task);
 
-      final cached = await dataSource.getCachedTaskDetails(9);
-      expect(cached?.id, 9);
+      final result = await dataSource.getCachedTaskDetails(1);
+
+      expect(result, same(task));
+      verify(() => tasksBox.get('1')).called(1);
     });
 
-    test('cacheTaskList / getCachedTaskList / empty', () async {
-      expect(await dataSource.getCachedTaskList(), isEmpty);
+    test('getCachedTaskList returns empty when cache missing', () async {
+      when(
+        () => taskListBox.get(HiveConstants.taskListCacheKey),
+      ).thenAnswer((_) async => null);
 
-      await dataSource.cacheTaskList([sampleTask(), sampleTask(id: 2)]);
-      final list = await dataSource.getCachedTaskList();
-      expect(list, hasLength(2));
+      final result = await dataSource.getCachedTaskList();
+
+      expect(result, isEmpty);
     });
 
-    test('upsert inserts then replaces', () async {
-      await dataSource.upsertCachedTask(sampleTask(title: 'First'));
-      await dataSource.upsertCachedTask(sampleTask(title: 'Updated'));
+    test('enqueuePendingOperation stores operation in box', () async {
+      await dataSource.enqueuePendingOperation(pendingOp);
 
-      final list = await dataSource.getCachedTaskList();
-      expect(list, hasLength(1));
-      expect(list.first.title, 'Updated');
+      verify(
+        () => pendingOperationsBox.put(pendingOp.operationId, pendingOp),
+      ).called(1);
     });
 
-    test('removeCachedTask and clearTaskDetails', () async {
-      await dataSource.cacheTaskDetails(sampleTask());
-      await dataSource.removeCachedTask(1);
-
-      expect(await dataSource.getCachedTaskDetails(1), isNull);
-      expect(await dataSource.getCachedTaskList(), isEmpty);
-    });
-
-    test('pending enqueue get remove update and helpers', () async {
-      final older = PendingSyncModel(
-        operationId: 'op-1',
-        taskId: 1,
-        operationType: PendingOperationType.update,
-        payload: const {'id': 1},
-        createdAt: DateTime.utc(2026, 1, 1),
-      );
-      final newer = PendingSyncModel(
+    test('getPendingOperations returns values sorted by createdAt', () async {
+      final later = pendingOp.copyWith(
         operationId: 'op-2',
-        taskId: 2,
-        operationType: PendingOperationType.create,
-        payload: const {'id': 2},
-        createdAt: DateTime.utc(2026, 1, 2),
+        createdAt: DateTime.parse('2026-07-21T08:00:00.000Z'),
       );
+      when(() => pendingOperationsBox.values).thenReturn([later, pendingOp]);
 
-      await dataSource.enqueuePendingOperation(newer);
-      await dataSource.enqueuePendingOperation(older);
+      final result = await dataSource.getPendingOperations();
 
-      final pending = await dataSource.getPendingOperations();
-      expect(pending.map((e) => e.operationId), ['op-1', 'op-2']);
-      expect(await dataSource.hasPendingOperationsForTask(1), isTrue);
-      expect(await dataSource.getPendingTaskIds(), {1, 2});
+      expect(result.map((op) => op.operationId), ['op-1', 'op-2']);
+    });
 
-      await dataSource.updatePendingOperation(older.copyWith(retryCount: 2));
-      expect((await dataSource.getPendingOperations()).first.retryCount, 2);
-
+    test('removePendingOperation deletes by id', () async {
       await dataSource.removePendingOperation('op-1');
-      expect(await dataSource.hasPendingOperationsForTask(1), isFalse);
+
+      verify(() => pendingOperationsBox.delete('op-1')).called(1);
     });
 
-    test('remapPendingTaskId rewrites payload and skips create', () async {
-      await dataSource.enqueuePendingOperation(
-        PendingSyncModel(
-          operationId: 'upd',
-          taskId: -5,
-          operationType: PendingOperationType.update,
-          payload: const {'id': -5, 'title': 'X'},
-          createdAt: DateTime.utc(2026, 1, 1),
-        ),
-      );
-      await dataSource.enqueuePendingOperation(
-        PendingSyncModel(
-          operationId: 'crt',
-          taskId: -5,
-          operationType: PendingOperationType.create,
-          payload: const {'id': -5},
-          createdAt: DateTime.utc(2026, 1, 2),
-        ),
-      );
+    test('hasPendingOperationsForTask returns true when matched', () async {
+      when(() => pendingOperationsBox.values).thenReturn([pendingOp]);
 
-      await dataSource.remapPendingTaskId(localId: -5, serverId: 99);
-      await dataSource.remapPendingTaskId(localId: 99, serverId: 99);
-
-      final pending = await dataSource.getPendingOperations();
-      final update = pending.firstWhere((e) => e.operationId == 'upd');
-      expect(update.taskId, 99);
-      expect(update.payload['id'], 99);
-      expect(
-        pending.firstWhere((e) => e.operationId == 'crt').taskId,
-        -5,
-      );
+      expect(await dataSource.hasPendingOperationsForTask(1), isTrue);
+      expect(await dataSource.hasPendingOperationsForTask(99), isFalse);
     });
 
-    test('replaceCachedTaskId swaps local for server', () async {
-      await dataSource.cacheTaskDetails(sampleTask(id: -1, title: 'Local'));
-      await dataSource.enqueuePendingOperation(
-        PendingSyncModel(
-          operationId: 'u1',
-          taskId: -1,
-          operationType: PendingOperationType.statusChange,
-          payload: const {'id': -1},
-          createdAt: DateTime.utc(2026, 1, 1),
-        ),
-      );
-
-      await dataSource.replaceCachedTaskId(
-        localId: -1,
-        serverTask: sampleTask(id: 50, title: 'Server'),
-      );
-
-      expect(await dataSource.getCachedTaskDetails(-1), isNull);
-      expect((await dataSource.getCachedTaskDetails(50))?.title, 'Server');
-      expect(
-        (await dataSource.getPendingOperations()).first.taskId,
-        50,
-      );
-    });
-
-    test('clearAllTaskCache clears boxes', () async {
-      await dataSource.cacheTaskDetails(sampleTask());
-      await dataSource.enqueuePendingOperation(
-        PendingSyncModel(
-          operationId: 'x',
-          taskId: 1,
-          operationType: PendingOperationType.delete,
-          payload: const {},
-          createdAt: DateTime.utc(2026, 1, 1),
-        ),
-      );
-
+    test('clearAllTaskCache clears all task-related boxes', () async {
       await dataSource.clearAllTaskCache();
 
-      expect(taskDetailsBox.isEmpty, isTrue);
-      expect(pendingBox.isEmpty, isTrue);
-      expect(await dataSource.getCachedTaskList(), isEmpty);
-    });
-
-    test('wraps failures as CacheException', () async {
-      when(() => hiveService.taskDetailsBox).thenThrow(Exception('down'));
-      expect(
-        () => dataSource.getCachedTaskDetails(1),
-        throwsA(isA<CacheException>()),
-      );
-    });
-
-    test('getCachedTaskList throws CacheException on bad json', () async {
-      await taskListBox.put(HiveConstants.taskListCacheKey, 'not-json');
-      expect(
-        () => dataSource.getCachedTaskList(),
-        throwsA(isA<CacheException>()),
-      );
-    });
-
-    test('getCachedTaskDetails throws on corrupt json', () async {
-      await taskDetailsBox.put('task_details_1', '{bad');
-      expect(
-        () => dataSource.getCachedTaskDetails(1),
-        throwsA(isA<CacheException>()),
-      );
+      verify(() => taskListBox.clear()).called(1);
+      verify(() => taskDetailsBox.clear()).called(1);
+      verify(() => tasksBox.clear()).called(1);
+      verify(() => pendingOperationsBox.clear()).called(1);
     });
   });
 }

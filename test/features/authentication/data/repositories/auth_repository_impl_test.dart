@@ -280,6 +280,30 @@ void main() {
 
       verify(() => taskLocalDataSource.clearAllTaskCache()).called(1);
     });
+
+    test('returns AuthenticationFailure for signup AuthException', () async {
+      when(
+        () => remoteDataSource.signup(
+          email: any(named: 'email'),
+          password: any(named: 'password'),
+        ),
+      ).thenThrow(
+        const AuthException(
+          code: 'email-already-in-use',
+          message: 'Email already in use.',
+        ),
+      );
+
+      final result = await repository.signup(
+        email: 'test@example.com',
+        password: 'password123',
+      );
+
+      expect(
+        result,
+        const Left(AuthenticationFailure(message: 'Email already in use.')),
+      );
+    });
   });
 
   group('logout', () {
@@ -295,6 +319,22 @@ void main() {
         verify(() => localDataSource.clearCachedUser()).called(1);
       },
     );
+
+    test('returns AuthenticationFailure for logout AuthException', () async {
+      when(() => remoteDataSource.logout()).thenThrow(
+        const AuthException(
+          code: 'too-many-requests',
+          message: 'Too many requests.',
+        ),
+      );
+
+      final result = await repository.logout();
+
+      expect(
+        result,
+        const Left(AuthenticationFailure(message: 'Too many requests.')),
+      );
+    });
   });
 
   group('currentUser', () {
@@ -316,6 +356,38 @@ void main() {
       final result = await repository.currentUser();
 
       expect(result, const Right(null));
+    });
+
+    test('falls back to cache when AuthException is thrown', () async {
+      when(() => remoteDataSource.getCurrentUser()).thenThrow(
+        const AuthException(
+          code: 'network-request-failed',
+          message: 'Network error.',
+        ),
+      );
+      when(
+        () => localDataSource.getCachedUser(),
+      ).thenAnswer((_) async => tUserModel);
+
+      final result = await repository.currentUser();
+
+      expect(result, const Right(tAppUser));
+    });
+  });
+
+  group('authStateChanges', () {
+    test('emits user then null', () async {
+      when(
+        () => remoteDataSource.authStateChanges(),
+      ).thenAnswer((_) => Stream.fromIterable([tUserModel, null]));
+
+      await expectLater(
+        repository.authStateChanges(),
+        emitsInOrder([tAppUser, null]),
+      );
+
+      verify(() => localDataSource.cacheUser(tUserModel)).called(1);
+      verify(() => localDataSource.clearCachedUser()).called(1);
     });
   });
 }

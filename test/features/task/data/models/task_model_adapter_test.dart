@@ -25,18 +25,14 @@ void main() {
 
   test('TaskModelAdapter round-trips via Hive', () async {
     final box = await Hive.openBox<TaskModel>('adapter_box');
-    final model = TaskModel.fromJson({
+    final model = TaskModel.fromJson(const {
       'id': 11,
       'title': 'Adapter',
       'description': 'Round trip',
       'priority': 'high',
       'status': 'in_progress',
       'dueDate': '2026-07-25T00:00:00.000Z',
-      'assignedUser': {
-        'id': 'u1',
-        'name': 'Alex',
-        'email': 'alex@example.com',
-      },
+      'assignedUser': {'id': 'u1', 'name': 'Alex', 'email': 'alex@example.com'},
       'createdAt': '2026-07-20T08:00:00.000Z',
       'updatedAt': '2026-07-21T08:00:00.000Z',
       'completed': false,

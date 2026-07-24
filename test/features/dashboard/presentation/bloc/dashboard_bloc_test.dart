@@ -267,5 +267,63 @@ void main() {
         );
       },
     );
+
+    blocTest<DashboardBloc, DashboardState>(
+      'LoadMoreTasks failure keeps existing tasks in DashboardError',
+      build: buildBloc,
+      seed: () =>
+          DashboardLoaded(tasks: [task], currentPage: 1, hasReachedMax: false),
+      setUp: () {
+        when(() => getTasksUseCase(any())).thenAnswer(
+          (_) async => const Left(ServerFailure(message: 'Load more failed')),
+        );
+      },
+      act: (bloc) => bloc.add(const LoadMoreTasks()),
+      expect: () => [
+        isA<DashboardLoadingMore>().having((s) => s.tasks.length, 'tasks', 1),
+        isA<DashboardError>()
+            .having((s) => s.message, 'message', 'Load more failed')
+            .having((s) => s.tasks, 'tasks', [task])
+            .having((s) => s.currentPage, 'page', 1),
+      ],
+    );
+
+    blocTest<DashboardBloc, DashboardState>(
+      'RefreshTasks soft-fails and keeps previous tasks',
+      build: buildBloc,
+      seed: () =>
+          DashboardLoaded(tasks: [task], currentPage: 1, hasReachedMax: false),
+      setUp: () {
+        when(() => getTasksUseCase(any())).thenAnswer(
+          (_) async => const Left(ServerFailure(message: 'Refresh failed')),
+        );
+      },
+      act: (bloc) => bloc.add(const RefreshTasks()),
+      expect: () => [
+        isA<DashboardLoaded>()
+            .having((s) => s.tasks, 'tasks', [task])
+            .having((s) => s.isFromCache, 'fromCache', isTrue)
+            .having((s) => s.currentPage, 'page', 1),
+      ],
+    );
+
+    blocTest<DashboardBloc, DashboardState>(
+      'LoadTasks recovers from DashboardError',
+      build: buildBloc,
+      seed: () => const DashboardError(message: 'Previous error'),
+      setUp: () {
+        stubEmptyCacheThen(
+          (_) async =>
+              Right(PaginatedTasksPage(tasks: [task], page: 1, totalPages: 1)),
+        );
+      },
+      act: (bloc) => bloc.add(const LoadTasks()),
+      expect: () => [
+        const DashboardLoading(),
+        isA<DashboardLoaded>()
+            .having((s) => s.tasks.length, 'tasks', 1)
+            .having((s) => s.isFromCache, 'fromCache', isFalse),
+      ],
+    );
   });
 }

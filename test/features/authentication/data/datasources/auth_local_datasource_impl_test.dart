@@ -79,10 +79,7 @@ void main() {
     test('wraps Hive failures as CacheException', () async {
       when(() => hiveService.userBox).thenThrow(Exception('closed'));
 
-      expect(
-        () => dataSource.getCachedUser(),
-        throwsA(isA<CacheException>()),
-      );
+      expect(() => dataSource.getCachedUser(), throwsA(isA<CacheException>()));
     });
   });
 }

@@ -68,11 +68,7 @@ void main() {
       expect(
         () => dataSource.login(email: 'a@b.com', password: 'x'),
         throwsA(
-          isA<AuthException>().having(
-            (e) => e.code,
-            'code',
-            'user-not-found',
-          ),
+          isA<AuthException>().having((e) => e.code, 'code', 'user-not-found'),
         ),
       );
     });
@@ -88,11 +84,7 @@ void main() {
       expect(
         () => dataSource.login(email: 'a@b.com', password: 'x'),
         throwsA(
-          isA<AuthException>().having(
-            (e) => e.code,
-            'code',
-            'wrong-password',
-          ),
+          isA<AuthException>().having((e) => e.code, 'code', 'wrong-password'),
         ),
       );
     });
@@ -107,9 +99,7 @@ void main() {
 
       expect(
         () => dataSource.login(email: 'a@b.com', password: 'x'),
-        throwsA(
-          isA<AuthException>().having((e) => e.code, 'code', 'unknown'),
-        ),
+        throwsA(isA<AuthException>().having((e) => e.code, 'code', 'unknown')),
       );
     });
   });
@@ -235,9 +225,9 @@ void main() {
 
   group('authStateChanges', () {
     test('maps null and non-null users', () async {
-      when(() => firebaseAuth.authStateChanges()).thenAnswer(
-        (_) => Stream.fromIterable([null, sampleUser]),
-      );
+      when(
+        () => firebaseAuth.authStateChanges(),
+      ).thenAnswer((_) => Stream.fromIterable([null, sampleUser]));
 
       final events = await dataSource.authStateChanges().toList();
       expect(events[0], isNull);

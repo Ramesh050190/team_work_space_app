@@ -2,8 +2,10 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:dartz/dartz.dart' hide Task;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:team_workspace/core/constants/message_keys.dart';
 import 'package:team_workspace/core/errors/server_failure.dart';
 import 'package:team_workspace/features/task/data/datasources/task_local_datasource.dart';
+import 'package:team_workspace/features/task/data/models/task_model.dart';
 import 'package:team_workspace/features/task/domain/entities/assigned_user.dart';
 import 'package:team_workspace/features/task/domain/entities/task.dart';
 import 'package:team_workspace/features/task/domain/entities/task_priority.dart';
@@ -47,6 +49,23 @@ void main() {
   final completedTask = task.copyWith(
     completed: true,
     status: TaskStatus.completed,
+  );
+
+  final cachedTaskModel = TaskModel(
+    id: 1,
+    title: 'Cached Sample',
+    description: 'From cache',
+    priority: TaskPriority.medium,
+    status: TaskStatus.pending,
+    dueDate: DateTime.parse('2026-07-25T00:00:00.000Z'),
+    assignedUser: const AssignedUserModel(
+      id: 'u1',
+      name: 'Alex',
+      email: 'alex@example.com',
+    ),
+    createdAt: DateTime.parse('2026-07-20T08:00:00.000Z'),
+    updatedAt: DateTime.parse('2026-07-20T08:00:00.000Z'),
+    completed: false,
   );
 
   setUpAll(() {
@@ -161,6 +180,116 @@ void main() {
         ),
         TaskDetailsSuccess(task: task, message: 'task_reopened'),
         TaskDetailsLoaded(task: task),
+      ],
+    );
+
+    blocTest<TaskDetailsBloc, TaskDetailsState>(
+      'paints cache first with pending sync message then refreshes',
+      build: buildBloc,
+      act: (bloc) => bloc.add(const LoadTaskDetails(1)),
+      setUp: () {
+        var pendingCalls = 0;
+        when(
+          () => taskLocalDataSource.getCachedTaskDetails(1),
+        ).thenAnswer((_) async => cachedTaskModel);
+        when(
+          () => taskLocalDataSource.hasPendingOperationsForTask(1),
+        ).thenAnswer((_) async {
+          pendingCalls++;
+          return pendingCalls == 1;
+        });
+        when(
+          () => getTaskDetailsUseCase(any()),
+        ).thenAnswer((_) async => Right(task));
+      },
+      expect: () => [
+        TaskDetailsLoaded(
+          task: cachedTaskModel,
+          statusUpdateMessage: MessageKeys.waitingForSync,
+        ),
+        TaskDetailsLoaded(task: task),
+      ],
+    );
+
+    blocTest<TaskDetailsBloc, TaskDetailsState>(
+      'RefreshTaskDetails reloads without Loading when already Loaded',
+      build: buildBloc,
+      seed: () => TaskDetailsLoaded(task: cachedTaskModel),
+      act: (bloc) => bloc.add(const RefreshTaskDetails(1)),
+      setUp: () {
+        when(
+          () => getTaskDetailsUseCase(any()),
+        ).thenAnswer((_) async => Right(task));
+      },
+      expect: () => [TaskDetailsLoaded(task: task)],
+    );
+
+    blocTest<TaskDetailsBloc, TaskDetailsState>(
+      'RetryLoading emits Loading then Loaded',
+      build: buildBloc,
+      seed: () => const TaskDetailsFailure(message: 'Server down'),
+      act: (bloc) => bloc.add(const RetryLoading()),
+      setUp: () {
+        when(
+          () => getTaskDetailsUseCase(any()),
+        ).thenAnswer((_) async => Right(task));
+      },
+      expect: () => [const TaskDetailsLoading(), TaskDetailsLoaded(task: task)],
+    );
+
+    blocTest<TaskDetailsBloc, TaskDetailsState>(
+      'emits Empty when failure message contains not found',
+      build: buildBloc,
+      act: (bloc) => bloc.add(const LoadTaskDetails(1)),
+      setUp: () {
+        when(() => getTaskDetailsUseCase(any())).thenAnswer(
+          (_) async => const Left(ServerFailure(message: 'Task not found')),
+        );
+      },
+      expect: () => const [
+        TaskDetailsLoading(),
+        TaskDetailsEmpty(message: MessageKeys.taskNotFound),
+      ],
+    );
+
+    blocTest<TaskDetailsBloc, TaskDetailsState>(
+      'ClearStatusUpdateMessage clears statusUpdateMessage',
+      build: buildBloc,
+      seed: () => TaskDetailsLoaded(
+        task: task,
+        statusUpdateMessage: MessageKeys.waitingForSync,
+      ),
+      act: (bloc) => bloc.add(const ClearStatusUpdateMessage()),
+      expect: () => [TaskDetailsLoaded(task: task)],
+    );
+
+    blocTest<TaskDetailsBloc, TaskDetailsState>(
+      'MarkCompleted success with pending emits waiting messages',
+      build: buildBloc,
+      seed: () => TaskDetailsLoaded(task: task),
+      act: (bloc) => bloc.add(const MarkCompleted()),
+      setUp: () {
+        when(
+          () => taskLocalDataSource.hasPendingOperationsForTask(any()),
+        ).thenAnswer((_) async => true);
+        when(
+          () => updateTaskStatusUseCase(any()),
+        ).thenAnswer((_) async => Right(completedTask));
+      },
+      expect: () => [
+        isA<TaskDetailsUpdating>().having(
+          (state) => state.task.completed,
+          'optimistic completed',
+          isTrue,
+        ),
+        TaskDetailsSuccess(
+          task: completedTask,
+          message: MessageKeys.savedOfflineWaitingSync,
+        ),
+        TaskDetailsLoaded(
+          task: completedTask,
+          statusUpdateMessage: MessageKeys.waitingForSync,
+        ),
       ],
     );
   });

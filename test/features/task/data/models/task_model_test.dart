@@ -21,12 +21,9 @@ void main() {
       'priority': priority,
       'status': status,
       'dueDate': '2026-07-25T00:00:00.000Z',
-      'assignedUser': assignedUser ??
-          {
-            'id': 'u1',
-            'name': 'Alex',
-            'email': 'alex@example.com',
-          },
+      'assignedUser':
+          assignedUser ??
+          {'id': 'u1', 'name': 'Alex', 'email': 'alex@example.com'},
       'createdAt': '2026-07-20T08:00:00.000Z',
       'updatedAt': '2026-07-20T08:00:00.000Z',
       if (completed != null) 'completed': completed,

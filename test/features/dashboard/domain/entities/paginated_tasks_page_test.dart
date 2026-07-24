@@ -13,11 +13,7 @@ void main() {
     );
 
     test('hasReachedMax when page >= totalPages', () {
-      final page = PaginatedTasksPage(
-        tasks: [task],
-        page: 3,
-        totalPages: 3,
-      );
+      final page = PaginatedTasksPage(tasks: [task], page: 3, totalPages: 3);
       expect(page.hasReachedMax, isTrue);
     });
 
@@ -27,11 +23,7 @@ void main() {
     });
 
     test('hasReachedMax is false when more pages remain', () {
-      final page = PaginatedTasksPage(
-        tasks: [task],
-        page: 1,
-        totalPages: 4,
-      );
+      final page = PaginatedTasksPage(tasks: [task], page: 1, totalPages: 4);
       expect(page.hasReachedMax, isFalse);
     });
 

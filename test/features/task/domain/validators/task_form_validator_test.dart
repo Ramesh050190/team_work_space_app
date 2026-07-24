@@ -15,7 +15,10 @@ void main() {
           TaskFormValidator.validateTitle('  '),
           MessageKeys.titleRequired,
         );
-        expect(TaskFormValidator.validateTitle('ab'), MessageKeys.titleTooShort);
+        expect(
+          TaskFormValidator.validateTitle('ab'),
+          MessageKeys.titleTooShort,
+        );
         expect(
           TaskFormValidator.validateTitle('a' * 101),
           MessageKeys.titleTooLong,
@@ -47,10 +50,7 @@ void main() {
           TaskFormValidator.validatePriority(null),
           MessageKeys.priorityRequired,
         );
-        expect(
-          TaskFormValidator.validatePriority(TaskPriority.high),
-          isNull,
-        );
+        expect(TaskFormValidator.validatePriority(TaskPriority.high), isNull);
       });
     });
 

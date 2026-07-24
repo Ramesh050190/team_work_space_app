@@ -34,7 +34,11 @@ void main() {
 
   testWidgets('renders branding and spinner', (tester) async {
     when(() => authBloc.state).thenReturn(const AuthInitial());
-    whenListen(authBloc, Stream<AuthState>.empty(), initialState: const AuthInitial());
+    whenListen(
+      authBloc,
+      const Stream<AuthState>.empty(),
+      initialState: const AuthInitial(),
+    );
 
     await tester.pumpWidget(pumpSplash());
 
@@ -45,7 +49,11 @@ void main() {
 
   testWidgets('dispatches AuthCheckRequested from AuthInitial', (tester) async {
     when(() => authBloc.state).thenReturn(const AuthInitial());
-    whenListen(authBloc, Stream<AuthState>.empty(), initialState: const AuthInitial());
+    whenListen(
+      authBloc,
+      const Stream<AuthState>.empty(),
+      initialState: const AuthInitial(),
+    );
 
     await tester.pumpWidget(pumpSplash());
 
@@ -57,7 +65,7 @@ void main() {
     when(() => authBloc.state).thenReturn(const AuthAuthenticated(user));
     whenListen(
       authBloc,
-      Stream<AuthState>.empty(),
+      const Stream<AuthState>.empty(),
       initialState: const AuthAuthenticated(user),
     );
 

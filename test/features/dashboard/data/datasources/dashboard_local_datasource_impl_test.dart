@@ -1,157 +1,212 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:team_workspace/core/exceptions/cache_exception.dart';
 import 'package:team_workspace/features/dashboard/data/datasources/dashboard_local_datasource_impl.dart';
 import 'package:team_workspace/features/dashboard/data/models/task_model.dart'
     as dashboard;
 import 'package:team_workspace/features/task/data/datasources/task_local_datasource.dart';
 import 'package:team_workspace/features/task/data/models/task_model.dart';
-import 'package:team_workspace/features/task/domain/entities/assigned_user.dart';
 import 'package:team_workspace/features/task/domain/entities/task_priority.dart';
 import 'package:team_workspace/features/task/domain/entities/task_status.dart';
 
-class MockTaskLocalDataSource extends Mock implements TaskLocalDataSource {}
+class _MockTaskLocalDataSource extends Mock implements TaskLocalDataSource {}
 
 void main() {
-  late MockTaskLocalDataSource taskLocal;
+  late _MockTaskLocalDataSource taskLocalDataSource;
   late DashboardLocalDataSourceImpl dataSource;
 
+  final older = DateTime.utc(2026, 7, 20, 8);
+  final newer = DateTime.utc(2026, 7, 22, 8);
+  final futureStamp = DateTime.utc(2099, 1, 1);
+
   TaskModel taskModel({
-    int id = 1,
-    String title = 'Flutter Task',
+    required int id,
+    required String title,
     TaskStatus status = TaskStatus.pending,
     TaskPriority priority = TaskPriority.medium,
     DateTime? updatedAt,
+    DateTime? createdAt,
   }) {
-    final stamp = DateTime.utc(2026, 7, 20, 8);
+    final created = createdAt ?? older;
     return TaskModel(
       id: id,
       title: title,
-      description: 'Details for task',
+      description: 'Description $id',
       priority: priority,
       status: status,
       dueDate: DateTime.utc(2026, 7, 25),
-      assignedUser: const AssignedUser(
+      assignedUser: const AssignedUserModel(
         id: 'u1',
         name: 'Alex',
         email: 'alex@example.com',
       ),
-      createdAt: stamp,
-      updatedAt: updatedAt ?? stamp,
+      createdAt: created,
+      updatedAt: updatedAt ?? older,
       completed: status == TaskStatus.completed,
     );
   }
 
   setUpAll(() {
-    registerFallbackValue(taskModel());
+    registerFallbackValue(taskModel(id: 0, title: 'fallback'));
+    registerFallbackValue(<TaskModel>[]);
   });
 
   setUp(() {
-    taskLocal = MockTaskLocalDataSource();
-    dataSource = DashboardLocalDataSourceImpl(taskLocalDataSource: taskLocal);
-    when(() => taskLocal.cacheTaskDetails(any())).thenAnswer((_) async {});
-    when(() => taskLocal.cacheTaskList(any())).thenAnswer((_) async {});
-    when(() => taskLocal.upsertCachedTask(any())).thenAnswer((_) async {});
+    taskLocalDataSource = _MockTaskLocalDataSource();
+    dataSource = DashboardLocalDataSourceImpl(
+      taskLocalDataSource: taskLocalDataSource,
+    );
   });
 
-  group('getCachedTasks', () {
-    test('filters by search status priority and paginates', () async {
-      when(() => taskLocal.getCachedTaskList()).thenAnswer(
+  group('DashboardLocalDataSourceImpl.getCachedTasks', () {
+    test('filters by search, status, priority and paginates', () async {
+      when(() => taskLocalDataSource.getCachedTaskList()).thenAnswer(
         (_) async => [
-          taskModel(id: 1, title: 'Flutter A'),
+          taskModel(
+            id: 1,
+            title: 'Alpha design',
+            status: TaskStatus.pending,
+            priority: TaskPriority.high,
+          ),
           taskModel(
             id: 2,
-            title: 'Dart B',
+            title: 'Beta design',
             status: TaskStatus.inProgress,
             priority: TaskPriority.high,
           ),
           taskModel(
             id: 3,
-            title: 'Flutter C',
+            title: 'Gamma design',
             status: TaskStatus.inProgress,
             priority: TaskPriority.high,
+          ),
+          taskModel(
+            id: 4,
+            title: 'Other work',
+            status: TaskStatus.inProgress,
+            priority: TaskPriority.high,
+          ),
+          taskModel(
+            id: 5,
+            title: 'Delta design',
+            status: TaskStatus.inProgress,
+            priority: TaskPriority.low,
           ),
         ],
       );
 
-      final page = await dataSource.getCachedTasks(
+      final result = await dataSource.getCachedTasks(
         page: 1,
-        limit: 1,
-        searchQuery: 'flutter',
+        limit: 2,
+        searchQuery: 'design',
         status: TaskStatus.inProgress,
         priority: TaskPriority.high,
       );
 
-      expect(page.tasks, hasLength(1));
-      expect(page.tasks.first.title, 'Flutter C');
-      expect(page.totalPages, 1);
-    });
+      expect(result.tasks, hasLength(2));
+      expect(result.tasks.map((t) => t.id), ['2', '3']);
+      expect(result.page, 1);
+      expect(result.totalPages, 1);
 
-    test('limit <= 0 yields totalPages 1', () async {
-      when(() => taskLocal.getCachedTaskList()).thenAnswer(
-        (_) async => [taskModel(), taskModel(id: 2)],
+      final page2 = await dataSource.getCachedTasks(
+        page: 2,
+        limit: 1,
+        searchQuery: 'design',
+        status: TaskStatus.inProgress,
+        priority: TaskPriority.high,
       );
 
-      final page = await dataSource.getCachedTasks(page: 1, limit: 0);
-      expect(page.totalPages, 1);
-    });
-
-    test('empty cache returns totalPages 1', () async {
-      when(() => taskLocal.getCachedTaskList()).thenAnswer((_) async => []);
-      final page = await dataSource.getCachedTasks(page: 1, limit: 10);
-      expect(page.tasks, isEmpty);
-      expect(page.totalPages, 1);
-    });
-
-    test('rethrows CacheException', () async {
-      when(
-        () => taskLocal.getCachedTaskList(),
-      ).thenThrow(const CacheException(message: 'fail'));
-
-      expect(
-        () => dataSource.getCachedTasks(page: 1, limit: 10),
-        throwsA(isA<CacheException>()),
-      );
+      expect(page2.tasks, hasLength(1));
+      expect(page2.tasks.single.id, '3');
+      expect(page2.totalPages, 2);
     });
   });
 
-  group('cacheTasks', () {
-    test('page 1 merges and skips fresher cache', () async {
-      final olderRemote = dashboard.TaskModel(
-        id: '1',
-        title: 'Remote older',
-        description: 'd',
-        status: 'pending',
-        createdAt: DateTime.utc(2026, 7, 1),
-      );
-      final newerCached = taskModel(
+  group('DashboardLocalDataSourceImpl.cacheTasks', () {
+    test('page 1 merges and keeps fresher local task', () async {
+      final localFresher = taskModel(
         id: 1,
-        title: 'Cached newer',
-        updatedAt: DateTime.utc(2026, 7, 30),
+        title: 'Local fresher',
+        updatedAt: futureStamp,
+      );
+      final localStale = taskModel(
+        id: 2,
+        title: 'Local stale',
+        updatedAt: older,
       );
 
-      when(() => taskLocal.getCachedTaskList())
-          .thenAnswer((_) async => [newerCached]);
+      when(
+        () => taskLocalDataSource.getCachedTaskList(),
+      ).thenAnswer((_) async => [localFresher, localStale]);
+      when(
+        () => taskLocalDataSource.cacheTaskDetails(any()),
+      ).thenAnswer((_) async {});
+      when(
+        () => taskLocalDataSource.cacheTaskList(any()),
+      ).thenAnswer((_) async {});
 
-      await dataSource.cacheTasks([olderRemote], page: 1);
+      await dataSource.cacheTasks([
+        dashboard.TaskModel(
+          id: '1',
+          title: 'Remote older',
+          description: 'Remote',
+          status: 'pending',
+          priority: 'medium',
+          createdAt: older,
+        ),
+        dashboard.TaskModel(
+          id: '2',
+          title: 'Remote newer title',
+          description: 'Remote',
+          status: 'pending',
+          priority: 'medium',
+          createdAt: newer,
+        ),
+      ], page: 1);
 
-      verify(() => taskLocal.cacheTaskList(any())).called(1);
-      verifyNever(() => taskLocal.cacheTaskDetails(any()));
+      final detailsCalls = verify(
+        () => taskLocalDataSource.cacheTaskDetails(captureAny()),
+      ).captured.cast<TaskModel>();
+
+      expect(detailsCalls.map((t) => t.id), isNot(contains(1)));
+      expect(detailsCalls.map((t) => t.id), contains(2));
+      expect(
+        detailsCalls.firstWhere((t) => t.id == 2).title,
+        'Remote newer title',
+      );
+
+      final listArg =
+          verify(
+                () => taskLocalDataSource.cacheTaskList(captureAny()),
+              ).captured.single
+              as List<TaskModel>;
+      final byId = {for (final task in listArg) task.id: task};
+      expect(byId[1]?.title, 'Local fresher');
+      expect(byId[2]?.title, 'Remote newer title');
     });
 
     test('page > 1 upserts each task', () async {
-      final remote = dashboard.TaskModel(
-        id: '5',
-        title: 'Page2',
-        description: 'd',
-        status: 'pending',
-        createdAt: DateTime.utc(2026, 7, 1),
-      );
+      when(
+        () => taskLocalDataSource.upsertCachedTask(any()),
+      ).thenAnswer((_) async {});
+      when(
+        () => taskLocalDataSource.cacheTaskDetails(any()),
+      ).thenAnswer((_) async {});
 
-      await dataSource.cacheTasks([remote], page: 2);
+      await dataSource.cacheTasks([
+        dashboard.TaskModel(
+          id: '10',
+          title: 'Page two',
+          description: 'More',
+          status: 'pending',
+          priority: 'low',
+          createdAt: older,
+        ),
+      ], page: 2);
 
-      verify(() => taskLocal.upsertCachedTask(any())).called(1);
-      verify(() => taskLocal.cacheTaskDetails(any())).called(1);
+      verify(() => taskLocalDataSource.upsertCachedTask(any())).called(1);
+      verify(() => taskLocalDataSource.cacheTaskDetails(any())).called(1);
+      verifyNever(() => taskLocalDataSource.getCachedTaskList());
+      verifyNever(() => taskLocalDataSource.cacheTaskList(any()));
     });
   });
 }

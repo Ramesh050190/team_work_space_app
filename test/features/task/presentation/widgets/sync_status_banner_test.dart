@@ -24,7 +24,7 @@ void main() {
 
   Widget pumpBanner(SyncState state) {
     when(() => syncBloc.state).thenReturn(state);
-    whenListen(syncBloc, Stream<SyncState>.empty(), initialState: state);
+    whenListen(syncBloc, const Stream<SyncState>.empty(), initialState: state);
     return pumpWithL10n(
       BlocProvider<SyncBloc>.value(
         value: syncBloc,
@@ -74,7 +74,9 @@ void main() {
     verify(() => syncBloc.add(const RetrySync())).called(1);
   });
 
-  testWidgets('synced with pending message shows upload banner', (tester) async {
+  testWidgets('synced with pending message shows upload banner', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       pumpBanner(
         const SyncSynced(

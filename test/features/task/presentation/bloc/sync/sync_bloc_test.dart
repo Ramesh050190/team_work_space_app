@@ -30,12 +30,12 @@ void main() {
   late MockTaskLocalDataSource local;
 
   PendingSyncModel pendingOp(int taskId) => PendingSyncModel(
-        operationId: 'op-$taskId',
-        taskId: taskId,
-        operationType: PendingOperationType.update,
-        payload: {'id': taskId},
-        createdAt: DateTime.utc(2026, 1, 1),
-      );
+    operationId: 'op-$taskId',
+    taskId: taskId,
+    operationType: PendingOperationType.update,
+    payload: {'id': taskId},
+    createdAt: DateTime.utc(2026, 1, 1),
+  );
 
   setUpAll(() {
     registerFallbackValue(const NoParams());
@@ -52,19 +52,20 @@ void main() {
   });
 
   SyncBloc buildBloc() => SyncBloc(
-        syncManager: syncManager,
-        syncPendingChangesUseCase: syncUseCase,
-        connectivityService: connectivity,
-        localDataSource: local,
-      );
+    syncManager: syncManager,
+    syncPendingChangesUseCase: syncUseCase,
+    connectivityService: connectivity,
+    localDataSource: local,
+  );
 
   group('SyncBloc', () {
     blocTest<SyncBloc, SyncState>(
       'SyncStartedListening offline emits SyncOffline',
       build: () {
         when(() => connectivity.isConnected()).thenAnswer((_) async => false);
-        when(() => local.getPendingOperations())
-            .thenAnswer((_) async => [pendingOp(1)]);
+        when(
+          () => local.getPendingOperations(),
+        ).thenAnswer((_) async => [pendingOp(1)]);
         return buildBloc();
       },
       act: (bloc) => bloc.add(const SyncStartedListening()),
@@ -82,8 +83,9 @@ void main() {
       'online with pending auto-starts sync',
       build: () {
         when(() => connectivity.isConnected()).thenAnswer((_) async => true);
-        when(() => local.getPendingOperations())
-            .thenAnswer((_) async => [pendingOp(3)]);
+        when(
+          () => local.getPendingOperations(),
+        ).thenAnswer((_) async => [pendingOp(3)]);
         when(() => syncUseCase(any())).thenAnswer(
           (_) async => const Right(
             SyncResult(syncedCount: 1, failedCount: 0, conflictCount: 0),
@@ -102,12 +104,12 @@ void main() {
     blocTest<SyncBloc, SyncState>(
       'ConnectivityChanged offline emits SyncOffline',
       build: () {
-        when(() => local.getPendingOperations())
-            .thenAnswer((_) async => [pendingOp(2)]);
+        when(
+          () => local.getPendingOperations(),
+        ).thenAnswer((_) async => [pendingOp(2)]);
         return buildBloc();
       },
-      act: (bloc) =>
-          bloc.add(const ConnectivityChanged(isConnected: false)),
+      act: (bloc) => bloc.add(const ConnectivityChanged(isConnected: false)),
       expect: () => [isA<SyncOffline>()],
     );
 
@@ -117,8 +119,7 @@ void main() {
         when(() => local.getPendingOperations()).thenAnswer((_) async => []);
         return buildBloc();
       },
-      act: (bloc) =>
-          bloc.add(const ConnectivityChanged(isConnected: true)),
+      act: (bloc) => bloc.add(const ConnectivityChanged(isConnected: true)),
       expect: () => [
         isA<SyncSynced>().having(
           (s) => s.message,
@@ -131,8 +132,9 @@ void main() {
     blocTest<SyncBloc, SyncState>(
       'SyncStarted failure emits SyncFailure',
       build: () {
-        when(() => local.getPendingOperations())
-            .thenAnswer((_) async => [pendingOp(1)]);
+        when(
+          () => local.getPendingOperations(),
+        ).thenAnswer((_) async => [pendingOp(1)]);
         when(() => syncUseCase(any())).thenAnswer(
           (_) async => const Left(ServerFailure(message: 'sync failed')),
         );
@@ -148,8 +150,9 @@ void main() {
     blocTest<SyncBloc, SyncState>(
       'partial sync failures emit SyncFailure',
       build: () {
-        when(() => local.getPendingOperations())
-            .thenAnswer((_) async => [pendingOp(1)]);
+        when(
+          () => local.getPendingOperations(),
+        ).thenAnswer((_) async => [pendingOp(1)]);
         when(() => syncUseCase(any())).thenAnswer(
           (_) async => const Right(
             SyncResult(syncedCount: 1, failedCount: 1, conflictCount: 0),
@@ -158,10 +161,7 @@ void main() {
         return buildBloc();
       },
       act: (bloc) => bloc.add(const SyncStarted()),
-      expect: () => [
-        isA<SyncSyncing>(),
-        isA<SyncFailure>(),
-      ],
+      expect: () => [isA<SyncSyncing>(), isA<SyncFailure>()],
     );
 
     blocTest<SyncBloc, SyncState>(
@@ -176,10 +176,7 @@ void main() {
         return buildBloc();
       },
       act: (bloc) => bloc.add(const RetrySync()),
-      expect: () => [
-        isA<SyncSyncing>(),
-        isA<SyncSynced>(),
-      ],
+      expect: () => [isA<SyncSyncing>(), isA<SyncSynced>()],
     );
 
     blocTest<SyncBloc, SyncState>(
@@ -190,11 +187,7 @@ void main() {
       },
       act: (bloc) async {
         bloc.add(
-          const SyncCompleted(
-            syncedCount: 2,
-            failedCount: 0,
-            conflictCount: 0,
-          ),
+          const SyncCompleted(syncedCount: 2, failedCount: 0, conflictCount: 0),
         );
         await Future<void>.delayed(Duration.zero);
         bloc.add(const SyncFailed(message: 'nope'));
