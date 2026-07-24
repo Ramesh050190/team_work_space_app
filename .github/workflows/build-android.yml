@@ -1,0 +1,112 @@
+name: Build Android
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      flavor:
+        description: Flavor to build
+        required: true
+        default: prod
+        type: choice
+        options:
+          - all
+          - dev
+          - stage
+          - prod
+  workflow_call:
+    inputs:
+      flavor:
+        description: Flavor to build (`all` builds every flavor)
+        required: false
+        default: all
+        type: string
+
+concurrency:
+  group: build-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  resolve:
+    name: Resolve flavors
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - name: Build matrix
+        id: set
+        run: |
+          FLAVOR="${{ inputs.flavor || github.event.inputs.flavor || 'all' }}"
+          if [ "$FLAVOR" = "all" ] || [ -z "$FLAVOR" ]; then
+            echo 'matrix={"include":[{"flavor":"dev","target":"lib/main_dev.dart"},{"flavor":"stage","target":"lib/main_stage.dart"},{"flavor":"prod","target":"lib/main_prod.dart"}]}' >> "$GITHUB_OUTPUT"
+          else
+            case "$FLAVOR" in
+              dev) TARGET="lib/main_dev.dart" ;;
+              stage) TARGET="lib/main_stage.dart" ;;
+              prod) TARGET="lib/main_prod.dart" ;;
+              *) echo "Unknown flavor: $FLAVOR"; exit 1 ;;
+            esac
+            echo "matrix={\"include\":[{\"flavor\":\"$FLAVOR\",\"target\":\"$TARGET\"}]}" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: APK (${{ matrix.flavor }})
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.resolve.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: >
+          flutter build apk
+          --release
+          --flavor ${{ matrix.flavor }}
+          -t ${{ matrix.target }}
+
+      - name: Build App Bundle (prod only)
+        if: matrix.flavor == 'prod'
+        run: >
+          flutter build appbundle
+          --release
+          --flavor prod
+          -t lib/main_prod.dart
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ matrix.flavor }}-${{ github.sha }}
+          path: build/app/outputs/flutter-apk/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload App Bundle
+        if: matrix.flavor == 'prod'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aab-prod-${{ github.sha }}
+          path: build/app/outputs/bundle/prodRelease/*.aab
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "872971844725",
+    "project_id": "team-workspace-test",
+    "storage_bucket": "team-workspace-test.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:872971844725:android:ba88d540a410b24fe50c3c",
+        "android_client_info": {
+          "package_name": "com.teamworkspace.team_workspace"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBnAnABOATVDm0ImcoseAX0_dgZ3-dnj_k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:872971844725:android:ba88d540a410b24fe50c3c",
+        "android_client_info": {
+          "package_name": "com.teamworkspace.team_workspace.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBnAnABOATVDm0ImcoseAX0_dgZ3-dnj_k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:872971844725:android:ba88d540a410b24fe50c3c",
+        "android_client_info": {
+          "package_name": "com.teamworkspace.team_workspace.stage"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBnAnABOATVDm0ImcoseAX0_dgZ3-dnj_k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

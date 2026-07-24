@@ -1,0 +1,6 @@
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
+#include "Generated.xcconfig"
+
+FLUTTER_TARGET=lib/main_dev.dart
+DISPLAY_NAME=TW Dev
+PRODUCT_BUNDLE_IDENTIFIER=com.teamworkspace.teamWorkspace.dev

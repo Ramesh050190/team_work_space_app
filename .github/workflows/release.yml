@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    name: CI gate
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build artifacts
+    needs: quality
+    uses: ./.github/workflows/build-android.yml
+    with:
+      flavor: all
+
+  github-release:
+    name: GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Download APK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: apk-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Download App Bundle
+        uses: actions/download-artifact@v4
+        with:
+          pattern: aab-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: List assets
+        run: find release-assets -type f | sort
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            release-assets/*.apk
+            release-assets/*.aab
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

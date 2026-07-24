@@ -1,0 +1,151 @@
+{
+  "@@locale": "en",
+  "appName": "Team Workspace",
+  "retry": "Retry",
+  "cancel": "Cancel",
+  "clear": "Clear",
+  "apply": "Apply",
+  "all": "All",
+  "logout": "Logout",
+  "language": "Language",
+  "english": "English",
+  "hindi": "Hindi",
+  "welcomeBack": "Welcome Back",
+  "createAccount": "Create Account",
+  "login": "Login",
+  "email": "Email",
+  "emailHint": "Enter your email",
+  "password": "Password",
+  "confirmPassword": "Confirm Password",
+  "createAnAccount": "Create an account",
+  "alreadyHaveAccountLogin": "Already have an account? Login",
+  "emailRequired": "Email is required",
+  "emailInvalid": "Enter a valid email",
+  "passwordRequired": "Password is required",
+  "passwordMinLength": "Password must be at least {min} characters",
+  "@passwordMinLength": {
+    "placeholders": {
+      "min": { "type": "int" }
+    }
+  },
+  "confirmPasswordRequired": "Please confirm your password",
+  "passwordsDoNotMatch": "Passwords do not match",
+  "fieldRequired": "{field} is required",
+  "@fieldRequired": {
+    "placeholders": {
+      "field": { "type": "String" }
+    }
+  },
+  "tasksTitle": "Tasks",
+  "filters": "Filters",
+  "createTask": "Create Task",
+  "editTask": "Edit Task",
+  "updateTask": "Update Task",
+  "taskDetails": "Task Details",
+  "searchTasksHint": "Search tasks by title",
+  "searchTasksSemantics": "Search tasks",
+  "clearSearch": "Clear search",
+  "noTasksYet": "No tasks yet.",
+  "noTasksFound": "No tasks found",
+  "tryChangingSearchOrFilters": "Try changing your search or filters.",
+  "status": "Status",
+  "priority": "Priority",
+  "clearAll": "Clear all",
+  "removeStatusFilter": "Remove status filter",
+  "removePriorityFilter": "Remove priority filter",
+  "dueDate": "Due Date",
+  "duePrefix": "Due {date}",
+  "@duePrefix": {
+    "placeholders": {
+      "date": { "type": "String" }
+    }
+  },
+  "waitingForSync": "Waiting for sync",
+  "openTaskSemantics": "Open task {title}",
+  "@openTaskSemantics": {
+    "placeholders": {
+      "title": { "type": "String" }
+    }
+  },
+  "title": "Title",
+  "description": "Description",
+  "assignedUser": "Assigned User",
+  "lastUpdated": "Last Updated",
+  "markCompleted": "Mark Completed",
+  "reopenTask": "Reopen Task",
+  "editTaskTooltip": "Edit task",
+  "titleRequired": "Title is required",
+  "titleTooShort": "Title must be at least {min} characters",
+  "@titleTooShort": {
+    "placeholders": {
+      "min": { "type": "int" }
+    }
+  },
+  "titleTooLong": "Title must be at most {max} characters",
+  "@titleTooLong": {
+    "placeholders": {
+      "max": { "type": "int" }
+    }
+  },
+  "descriptionRequired": "Description is required",
+  "descriptionTooShort": "Description must be at least {min} characters",
+  "@descriptionTooShort": {
+    "placeholders": {
+      "min": { "type": "int" }
+    }
+  },
+  "priorityRequired": "Priority is required",
+  "dueDateRequired": "Due date is required",
+  "dueDateInvalid": "Enter a valid due date",
+  "dueDateInPast": "Due date cannot be in the past",
+  "statusPending": "Pending",
+  "statusInProgress": "In Progress",
+  "statusCompleted": "Completed",
+  "priorityLow": "Low",
+  "priorityMedium": "Medium",
+  "priorityHigh": "High",
+  "taskCreatedSuccess": "Task created successfully",
+  "taskUpdatedSuccess": "Task updated successfully",
+  "taskMarkedCompleted": "Task marked as completed",
+  "taskReopened": "Task reopened",
+  "savedOfflineWaitingSync": "Saved offline — waiting for sync",
+  "taskNotFound": "Task not found.",
+  "youAreOffline": "You are offline",
+  "offlinePendingCount": "Offline · {count} waiting for sync",
+  "@offlinePendingCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "syncingChanges": "Syncing changes…",
+  "pendingCountWaiting": "{count} waiting for sync",
+  "@pendingCountWaiting": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "backOnline": "Back online",
+  "syncedCount": "Synced {count} change(s)",
+  "@syncedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "syncedPartialFailure": "Synced {synced}, failed {failed}.",
+  "@syncedPartialFailure": {
+    "placeholders": {
+      "synced": { "type": "int" },
+      "failed": { "type": "int" }
+    }
+  },
+  "somethingWentWrong": "Something went wrong. Please try again."
+,
+  "selectDate": "Select date",
+  "noDescription": "No description provided.",
+  "profile": "Profile",
+  "theme": "Theme",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "themeSystem": "System",
+  "openProfile": "Open profile"
+}
